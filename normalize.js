@@ -21,41 +21,50 @@ try {
   });
 }
 
-// 解决隐私模式下 localStorage 不正常问题
-void function() { 
-  // 使用一个 32 位以上的 36 进制字符串作为 key 以防止冲突
-  var hash = '';
-  while(hash.length < 32) {
-    hash += Math.floor(Math.pow(36, 10) * Math.random()).toString(36);
-  }
-  try {
-    // 测试 localStroage 是否可用
-    localStorage.setItem(hash, hash);
-    if(hash === localStorage.getItem(hash)) {
-      localStorage.removeItem(hash);
+void function() {
+  // 解决隐私模式下 localStorage 不正常问题
+  function fxckStorage(storage, name) {
+    // 使用一个 32 位以上的 36 进制字符串作为 key 以防止冲突
+    var hash = '';
+    while(hash.length < 32) {
+      hash += Math.floor(Math.pow(36, 10) * Math.random()).toString(36);
     }
-  } catch(e) {
-    // 此时还没有 localStorage 就表示这货是全局不可写且不可配置的 null
-    if(!localStorage) return setTimeout(function() { throw new Error('The fucking localStorage is a hard null.'); });
-    // 若 localStorage 不可用则将其方法对应到一个临时堆上储存
-    var heap = {};
-    // 所有 key 都加一个前缀以防止与原生属性冲突
-    var prefix = hash;
-    localStorage.setItem = function(key, value) {
-       // 总是以字符串储存
-       heap[prefix + key] = value + '';
-    };
-    localStorage.getItem = function(key) {
-      // 项不存在时返回 null 而不是 undefined 
-      return (prefix + key) in heap ? heap[prefix + key] : null;
-    };
-    localStorage.removeItem = function(key) {
-      delete heap[prefix + key];
-    };
-    localStorage.clear = function() {
-      heap = {};
-    };
-  }
+    // 确保不同的 storage 生成的key不同
+    hash += name + '_';
+    try {
+      // 测试 localStroage 是否可用
+      storage.setItem(hash, hash);
+      if(hash === storage.getItem(hash)) {
+        storage.removeItem(hash);
+      }
+    } catch(e) {
+      // 此时还没有 localStorage 就表示这货是全局不可写且不可配置的 null
+      if(!storage) return setTimeout(function() {
+        throw new Error('The fucking ' + name + ' is a hard null.');
+      });
+      // 若 localStorage 不可用则将其方法对应到一个临时堆上储存
+      var heap = {};
+      // 所有 key 都加一个前缀以防止与原生属性冲突
+      var prefix = hash;
+      storage.setItem = function(key, value) {
+         // 总是以字符串储存
+         heap[prefix + key] = value + '';
+      };
+      storage.getItem = function(key) {
+        // 项不存在时返回 null 而不是 undefined
+        return (prefix + key) in heap ? heap[prefix + key] : null;
+      };
+      storage.removeItem = function(key) {
+        delete heap[prefix + key];
+      };
+      storage.clear = function() {
+        heap = {};
+      };
+    }
+  };
+
+  fxckStorage(localStorage, 'localStorage');
+  fxckStorage(sessionStorage, 'sessionStorage');
 }();
 
 // 修复 Safari 对 Date.parse 的兼容问题
@@ -80,4 +89,3 @@ void function() {
     }
   };
 }();
-
